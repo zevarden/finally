@@ -101,3 +101,47 @@ class TestPriceCache:
         cache = PriceCache()
         update = cache.update("AAPL", 190.12345)
         assert update.price == 190.12
+
+    def test_session_open_carries_forward(self):
+        cache = PriceCache()
+        cache.update("AAPL", 190.0, session_open=189.0)
+        update = cache.update("AAPL", 191.0)
+        assert update.session_open == 189.0
+        assert update.previous_price == 190.0
+        assert cache.update("AAPL", 192.0, session_open=None).session_open is None
+
+    def test_session_open_rounded(self):
+        cache = PriceCache()
+        assert cache.update("AAPL", 190.0, session_open=189.12345).session_open == 189.12
+
+    def test_remove_bumps_version_only_when_present(self):
+        cache = PriceCache()
+        cache.update("AAPL", 190.0)
+        v = cache.version
+        cache.remove("AAPL")
+        assert cache.version == v + 1
+        cache.remove("AAPL")
+        assert cache.version == v + 1
+
+    def test_zero_timestamp_is_kept(self):
+        cache = PriceCache()
+        assert cache.update("AAPL", 190.0, timestamp=0.0).timestamp == 0.0
+
+    def test_concurrent_writers_and_readers(self):
+        import threading
+
+        cache = PriceCache()
+
+        def write(t):
+            for i in range(2000):
+                cache.update(t, 100 + i)
+
+        threads = [threading.Thread(target=write, args=(t,)) for t in ("A", "B", "C", "D")]
+        for th in threads:
+            th.start()
+        for _ in range(200):
+            dict(cache.get_all())  # must never raise "dict changed size"
+        for th in threads:
+            th.join()
+        assert cache.version == 8000
+        assert cache.get_price("A") == 2099.0
