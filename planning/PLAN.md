@@ -122,7 +122,7 @@ finally/
 
 ```bash
 # Required: Grok API key for LLM chat functionality
-LITELLM_MASTER_KEY=sk-96478d1a5e0dda6a4b2b648105f5273facf4455cb9b7a4783911655fd110395a
+LITELLM_MASTER_KEY=your-litellm-key-here
 
 # Optional: Massive (Polygon.io) API key for real market data
 # If not set, the built-in market simulator is used (recommended for most users)

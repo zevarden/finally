@@ -1,5 +1,7 @@
 """Seed prices and per-ticker parameters for the market simulator."""
 
+import zlib
+
 # Realistic starting prices for the default watchlist (as of project creation)
 SEED_PRICES: dict[str, float] = {
     "AAPL": 190.00,
@@ -45,3 +47,12 @@ INTRA_TECH_CORR = 0.6  # Tech stocks move together
 INTRA_FINANCE_CORR = 0.5  # Finance stocks move together
 CROSS_GROUP_CORR = 0.3  # Between sectors / unknown tickers
 TSLA_CORR = 0.3  # TSLA does its own thing
+
+
+def fallback_seed_price(ticker: str) -> float:
+    """Stable pseudo-random seed in [50, 300) for tickers without a SEED_PRICES entry.
+
+    Deterministic per ticker, so e.g. PYPL starts at the same price after a restart
+    or after being removed and re-added (random.uniform would make it jump).
+    """
+    return 50.0 + (zlib.crc32(ticker.encode()) % 25_000) / 100.0

@@ -2,13 +2,10 @@
 
 import asyncio
 
-import pytest
-
 from app.market.cache import PriceCache
 from app.market.simulator import SimulatorDataSource
 
 
-@pytest.mark.asyncio
 class TestSimulatorDataSource:
     """Integration tests for the SimulatorDataSource."""
 
@@ -31,7 +28,10 @@ class TestSimulatorDataSource:
         await source.start(["AAPL"])
 
         initial_version = cache.version
-        await asyncio.sleep(0.3)  # Several update cycles
+        for _ in range(100):
+            if cache.version > initial_version:
+                break
+            await asyncio.sleep(0.01)
 
         # Version should have incremented (prices updated)
         assert cache.version > initial_version
@@ -117,9 +117,10 @@ class TestSimulatorDataSource:
         await source.start(["AAPL"])
 
         initial_version = cache.version
-        await asyncio.sleep(0.05)  # Should get ~5 updates
-
-        # Should have multiple updates with fast interval
+        for _ in range(100):  # poll instead of a fixed sleep: robust on slow CI
+            if cache.version > initial_version + 2:
+                break
+            await asyncio.sleep(0.01)
         assert cache.version > initial_version + 2
 
         await source.stop()
@@ -128,11 +129,66 @@ class TestSimulatorDataSource:
         """Test creating source with custom event probability."""
         cache = PriceCache()
         # Very high event probability for testing
-        source = SimulatorDataSource(
-            price_cache=cache, update_interval=0.1, event_probability=1.0
-        )
+        source = SimulatorDataSource(price_cache=cache, update_interval=0.1, event_probability=1.0)
+        await source.start(["AAPL"])
+        for _ in range(100):
+            if cache.version > 1:  # at least one tick after the seed write
+                break
+            await asyncio.sleep(0.01)
+        await source.stop()
+        # Every tick is a 2-5% shock, so each tick-to-tick move is at least ~2%
+        assert abs(cache.get("AAPL").change_percent) > 1.9
+
+    async def test_seed_makes_prices_reproducible(self):
+        async def run():
+            cache = PriceCache()
+            source = SimulatorDataSource(price_cache=cache, update_interval=60, seed=42)
+            await source.start(["AAPL", "MSFT"])
+            prices = [source._sim.step() for _ in range(20)]
+            await source.stop()
+            return prices
+
+        assert await run() == await run()
+
+    async def test_initial_prices_and_session_open(self):
+        cache = PriceCache()
+        source = SimulatorDataSource(price_cache=cache, update_interval=0.01)
+        await source.start(["AAPL"], initial_prices={"AAPL": 230.0})
+        assert cache.get("AAPL").price == 230.0
+        assert cache.get("AAPL").session_open == 230.0
+        for _ in range(100):
+            if cache.get("AAPL").timestamp and cache.version > 3:
+                break
+            await asyncio.sleep(0.01)
+        assert cache.get("AAPL").session_open == 230.0  # carried forward by ticks
+        await source.stop()
+
+    async def test_status(self):
+        cache = PriceCache()
+        source = SimulatorDataSource(price_cache=cache, update_interval=0.01)
+        await source.start(["AAPL", "MSFT"])
+        for _ in range(100):
+            if source.status()["last_success"]:
+                break
+            await asyncio.sleep(0.01)
+        status = source.status()
+        assert status["source"] == "simulator" and status["mode"] == "simulated"
+        assert status["tickers"] == 2 and status["last_success"] and status["last_error"] is None
+        await source.stop()
+
+    async def test_step_error_is_recorded_and_loop_survives(self):
+        cache = PriceCache()
+        source = SimulatorDataSource(price_cache=cache, update_interval=0.01)
         await source.start(["AAPL"])
 
-        # Just verify it starts and stops cleanly
-        await asyncio.sleep(0.2)
+        def boom():
+            raise RuntimeError("bad tick")
+
+        source._sim.step = boom
+        for _ in range(100):
+            if source.status()["last_error"]:
+                break
+            await asyncio.sleep(0.01)
+        assert "bad tick" in source.status()["last_error"]
+        assert not source._task.done()
         await source.stop()

@@ -188,3 +188,44 @@ Suppressing cancellation is an asyncio anti-pattern. Log it in a `finally` block
 5. **L6, L7**, and the documentation fixes in §5.
 
 All of these fixes are already specified as drop-in code in `MARKET_DATA_DESIGN.md`. No new design work is needed.
+
+---
+
+## 7. Resolution (2026-11-12)
+
+All findings were addressed on branch `market-data-fixes`, following `MARKET_DATA_DESIGN.md`.
+
+| Finding | Status | Where |
+|---|---|---|
+| C1 `last_trade.timestamp` | Fixed: `extract_price()` reads `sip_timestamp / 1e9`, with fallbacks to minute/day/prev-day bars | `massive_client.py` |
+| C2 MagicMock tests | Fixed: `tests/market/fakes.py` builds real `TickerSnapshot` / `GroupedDailyAgg` objects | `test_massive.py` |
+| H1 free/bad key | Fixed: start-up probe; 403 → `eod` mode (grouped-daily, hourly); 401 → `MassiveAuthError` → `start_market_data()` falls back to the simulator | `massive_client.py`, `factory.py` |
+| H2 daily change % | Fixed: `session_open`, `day_change`, `day_change_percent` (carried forward in the cache) | `models.py`, `cache.py` |
+| H3 ghost ticker | Fixed: snapshots for removed tickers are dropped; the thread gets a copy of the ticker list | `massive_client.py` |
+| H4 duplicate route | Fixed: router created per call; cache read from `app.state` when not injected | `stream.py` |
+| M1 removals in SSE | Fixed: `remove()` bumps `version`; empty map sent as `data: {}` | `cache.py`, `stream.py` |
+| M2 keep-alive | Fixed: `: ping` after 15 s idle | `stream.py` |
+| M3 normalization | Fixed: `normalize_ticker()` used at every entry point, de-duplicated in `start()` | all sources |
+| M4 client retries | Fixed: `RESTClient(retries=0)` | `massive_client.py` |
+| M5 poll interval | Fixed: `MASSIVE_POLL_INTERVAL` (clamped to ≥ 1 s); also added `MARKET_SIM_SEED` | `factory.py` |
+| M6 SSE coverage | Fixed: `stream.py` now at 100 % | `test_stream.py` |
+| M7 conformance | Fixed: contract tests parametrized over both sources | `test_conformance.py` |
+| L1 global RNG | Fixed: injected `np.random.Generator`, vectorized step | `simulator.py` |
+| L2 random fallback seed | Fixed: stable `fallback_seed_price()` based on CRC32 | `seed_prices.py` |
+| L3 shared params | Fixed: params copied per instance | `simulator.py` |
+| L4 `timestamp=0` | Fixed: `is None` check | `cache.py` |
+| L5 add before start | Fixed: both sources queue the ticker and include it in `start()` | both sources |
+| L6 `CancelledError` swallowed | Fixed: logged in `finally`; cancellation propagates | `stream.py` |
+| L7 hygiene | Fixed: `rich` moved to the `dev` extra, `massive>=2.0.0`, deprecated `event_loop_policy` fixture and redundant asyncio markers removed, timing tests poll instead of fixed sleeps. **Not done:** a `.python-version` pin for 3.12. The sandbox can't download 3.12, and the pin would break local runs; `requires-python >=3.12` and the Dockerfile's base image enforce the version instead | `pyproject.toml`, tests |
+| Docs | Fixed: root `CLAUDE.md` points at existing docs, `backend/CLAUDE.md` + `README.md` rewritten, `.env.example` added | — |
+| Leaked key | Replaced with a placeholder in `PLAN.md`. **The key must still be rotated:** it remains in git history | `planning/PLAN.md` |
+
+**Results after the fixes:** 129 tests pass (previously 73), coverage is 99 % (previously 91 %), `ruff check` and `ruff format` are clean, and the suite is stable across repeated runs (≈ 2 s).
+
+**Live checks:**
+- uvicorn + `start_market_data()` + `curl` on `/api/stream/prices` produced frames with all ten fields.
+- Removing tickers produced frames `[AAPL, TSLA] → [TSLA] → {}`.
+- `/api/health` reports `status()`.
+- With a bogus `MASSIVE_API_KEY`, the sandbox's proxy returned a non-JSON 404. That was correctly classified as a transient error: the app stayed up and `last_error` was reported.
+
+**Not verified:** the real-world 401/403 paths against api.massive.com, because the sandbox has no outbound access to it. Verify these with a real key before relying on EOD mode.
