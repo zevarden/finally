@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+@theme {
+  --color-canvas: #0d1117;
+  --color-panel: #121923;
+  --color-raised: #19222e;
+  --color-line: #253041;
+  --color-line-soft: #1c2533;
+  --color-ink: #e4e8ee;
+  --color-ink-2: #9aa5b4;
+  --color-ink-3: #66717f;
+  --color-accent: #ecad0a;
+  --color-blue: #209dd7;
+  --color-purple: #753991;
+  --color-purple-hi: #8c46ad;
+  --color-up: #2ebd74;
+  --color-down: #ef5350;
+  --color-flat: #3a4351;
+
+  --font-sans: "IBM Plex Sans Condensed", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+html, body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  height: 100%;
+  -webkit-font-smoothing: antialiased;
+}
+
+body { font-size: 13px; line-height: 1.35; }
+
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+/* Price flash: class is applied instantly, then removed; the base transition fades it out. */
+.price-cell {
+  transition: background-color 500ms ease-out, color 500ms ease-out;
+  border-radius: 2px;
+}
+.price-cell.flash-up { background-color: rgb(46 189 116 / 0.26); color: #c9f5dc; transition: none; }
+.price-cell.flash-down { background-color: rgb(239 83 80 / 0.26); color: #ffd6d5; transition: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .price-cell { transition: none; }
+}
+
+:focus-visible { outline: 2px solid var(--color-blue); outline-offset: 1px; }
+
+/* thin scrollbars to match the terminal density */
+* { scrollbar-width: thin; scrollbar-color: #2a3546 transparent; }
+
+.chat-dots span {
+  display: inline-block; width: 5px; height: 5px; margin-right: 3px; border-radius: 50%;
+  background: var(--color-ink-2); animation: chat-dot 1s infinite ease-in-out;
+}
+.chat-dots span:nth-child(2) { animation-delay: 0.15s; }
+.chat-dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes chat-dot { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }

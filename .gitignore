@@ -205,3 +205,22 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# ---------------------------------------------------------------------------
+# FinAlly project
+# ---------------------------------------------------------------------------
+# Runtime SQLite database (db/.gitkeep keeps the directory)
+db/*.db*
+
+# Frontend build output and deps
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Frontend static export copied into the backend
+backend/static/
+
+# E2E test artifacts
+test/node_modules/
+test-results/
+playwright-report/

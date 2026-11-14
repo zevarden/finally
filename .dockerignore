@@ -1,0 +1,48 @@
+# VCS / editor / agent files
+.git
+.github
+.claude
+.vscode
+.idea
+
+# Secrets: passed at runtime via --env-file, never baked into the image
+.env
+.env.*
+!.env.example
+
+# Frontend build artifacts and deps (rebuilt inside the image)
+**/node_modules
+frontend/.next
+frontend/out
+
+# Python artifacts
+**/.venv
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+**/.coverage
+**/htmlcov
+backend/static
+
+# Runtime database
+db
+**/*.db
+**/*.db-journal
+**/*.db-wal
+**/*.db-shm
+
+# Tests and test artifacts (not needed in the runtime image)
+test
+**/test-results
+**/playwright-report
+**/coverage
+
+# Docs and misc
+planning
+scripts
+*.md
+!backend/README.md
+Dockerfile
+docker-compose*.yml

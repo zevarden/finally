@@ -66,7 +66,7 @@ The user runs a single Docker command (or a provided start script). A browser op
 - **Backend**: FastAPI (Python), managed as a `uv` project
 - **Database**: SQLite, single file at `db/finally.db`, volume-mounted for persistence
 - **Real-time data**: Server-Sent Events (SSE) — simpler than WebSockets, one-way server→client push, works everywhere
-- **AI integration**: LiteLLM → XAI/grok4.7, with structured outputs for trade execution
+- **AI integration**: LiteLLM → xai/grok-4.7, with structured outputs for trade execution
 - **Market data**: Environment-variable driven — simulator by default, real data via Massive API if key provided
 
 ### Why These Choices
@@ -281,7 +281,7 @@ All tables include a `user_id` column defaulting to `"default"`. This is hardcod
 
 ## 9. LLM Integration
 
-When writing code to make calls to LLMs, use LiteLLM to call the `xai/grok4.7` model. Structured Outputs should be used to interpret the results.
+When writing code to make calls to LLMs, use LiteLLM to call the `xai/grok-4.7` model. Structured Outputs should be used to interpret the results.
 
 There is an LITELLM_MASTER_KEY in the .env file in the project root.
 
@@ -292,7 +292,7 @@ When the user sends a chat message, the backend:
 1. Loads the user's current portfolio context (cash, positions with P&L, watchlist with live prices, total portfolio value)
 2. Loads recent conversation history from the `chat_messages` table
 3. Constructs a prompt with a system message, portfolio context, conversation history, and the user's new message
-4. Calls the LLM via LiteLLM → xai/grok4.7 requesting structured output.
+4. Calls the LLM via LiteLLM → xai/grok-4.7 requesting structured output.
 5. Parses the complete structured JSON response
 6. Auto-executes any trades or watchlist changes specified in the response
 7. Stores the message and executed actions in `chat_messages`

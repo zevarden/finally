@@ -1,0 +1,47 @@
+# E2E test stack: the app (fresh DB, mock LLM, seeded simulator) + Playwright.
+# Run from the repo root:
+#   docker compose -f test/docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from playwright
+#   docker compose -f test/docker-compose.test.yml down -v
+# The app service is NOT named "app": Chromium HSTS-preloads the .app TLD, so
+# http://app:8000 would be forced to HTTPS (net::ERR_SSL_PROTOCOL_ERROR).
+name: finally-e2e
+
+services:
+  finally-app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      LLM_MOCK: "true"
+      MARKET_SIM_SEED: "42"
+      MASSIVE_API_KEY: ""
+      LITELLM_MASTER_KEY: "not-used-in-mock-mode"
+    # No named volume: tmpfs over the image VOLUME so every run starts from a
+    # freshly seeded database (an anonymous volume would survive recreation).
+    tmpfs:
+      - /app/db
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=3)"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.65.0-noble
+    depends_on:
+      finally-app:
+        condition: service_healthy
+    working_dir: /work
+    ipc: host
+    environment:
+      BASE_URL: http://finally-app:8000
+      CI: "1"
+    volumes:
+      - ./:/work
+      # Keep the host's node_modules out of the Linux container.
+      - /work/node_modules
+    command: >
+      sh -c "npm ci --no-audit --no-fund &&
+             node scripts/wait-for-app.mjs &&
+             npx playwright test"
